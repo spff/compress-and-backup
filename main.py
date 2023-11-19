@@ -108,7 +108,7 @@ def main():
 
 def crc_dir(bin, path):
     ret = subprocess.run([bin, 'h', '-scrcCRC32', str(path.resolve().absolute())], capture_output=True)
-    for line in ret.stdout.decode('utf-8').replace('\r', '').split('\n'):
+    for line in ret.stdout.decode('utf-8', errors='ignore').replace('\r', '').split('\n'):
         if line.startswith('CRC32  for data and names:    '):
             return line.split('CRC32  for data and names:    ')[1]
     else:
@@ -117,7 +117,7 @@ def crc_dir(bin, path):
 
 def crc_archive(bin, path):
     ret = subprocess.run([bin, 't', str(path.resolve().absolute()), '-scrcCRC32'], capture_output=True)
-    for line in ret.stdout.decode('utf-8').replace('\r', '').split('\n'):
+    for line in ret.stdout.decode('utf-8', errors='ignore').replace('\r', '').split('\n'):
         if line.startswith('CRC32  for data and names:    '):
             return line.split('CRC32  for data and names:    ')[1]
     else:
@@ -219,4 +219,10 @@ def download(bucket, object_key, download_file_path, file_size_mb):
     return transfer_callback.thread_info
 
 
-main()
+try:
+    main()
+except Exception as e:
+    import traceback
+    for line in traceback.TracebackException.from_exception(e, capture_locals=True).format(chain=True):
+        print(line, end="")
+    exit(-1)
