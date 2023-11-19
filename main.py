@@ -43,13 +43,13 @@ def main():
         base.absolute().resolve(),
         src.absolute().resolve(),
     )
-    subdirs = [x for x in src.iterdir() if x.is_dir()]
+    children = [x for x in src.iterdir() if (x.is_dir() or not x.name.endswith('.7z'))]
     questions = [
         inquirer.Checkbox(
             "interests",
             message="Select directories to backup",
-            choices=subdirs,
-            default=subdirs,
+            choices=children,
+            default=children,
         ),
     ]
 
@@ -77,7 +77,7 @@ def main():
                 continue
             else:
                 print(f"Found change, dir: {dir_crc}, s3: {cloud_crcs[object_key]}")
-        print(cloud_crcs, object_key)
+
         should_compress = True
         if archive_path.exists():
             archive_crc = crc_archive(envs['7z_bin'], archive_path)
