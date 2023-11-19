@@ -2,6 +2,13 @@
 
 The main purpose of this repo is to compress and backup my files to the cloud.
 
+## Prerequisite
+    https://github.com/mcmilk/7-Zip-zstd
+
+## Usage
+    `python main.py --base /d --src spff_stable/`  
+
+
 ## Considerations
 - Cost
     - Backup
