@@ -67,33 +67,34 @@ def main():
     for x in answers['interests']:
         print(x, x.name)
         archive_path = x/'..'/f'{x.name}.7z'
-        dir_crc = crc_dir(envs['7z_bin'], x)
+        src_crc = crc_path(envs['7z_bin'], x, False, x.is_dir())
 
         object_key = f'{prefix}{args_config.src}{x.name}.7z'
 
         if object_key in cloud_crcs:
-            if cloud_crcs[object_key] == dir_crc:
+            if cloud_crcs[object_key] == src_crc:
                 print('No changes, skip')
                 continue
             else:
-                print(f"Found change, dir: {dir_crc}, s3: {cloud_crcs[object_key]}")
+                print(f"Found change, dir: {src_crc}, s3: {cloud_crcs[object_key]}")
 
         should_compress = True
         if archive_path.exists():
-            archive_crc = crc_archive(envs['7z_bin'], archive_path)
-            if archive_crc == dir_crc:
+            archive_crc = crc_path(envs['7z_bin'], archive_path, True, x.is_dir())
+            if archive_crc == src_crc:
                 print('Found archive, upload directly')
                 should_compress = False
             else:
-                print(f'Found archive but crc not match, dir: {dir_crc}, archive: {archive_crc}, overwrite')
+                print(f'Found archive but crc not match, dir: {src_crc}, archive: {archive_crc}, overwrite')
 
         if should_compress:
             compress(envs['7z_bin'], archive_path, x)
-            if crc_archive(envs['7z_bin'], archive_path) != dir_crc:
+            archive_crc = crc_path(envs['7z_bin'], archive_path, True, x.is_dir())
+            if archive_crc != src_crc:
                 raise Exception(
                     "Something wrong, maybe the dir has been changed after the process started {}, {}".format(
-                        dir_crc,
-                        crc_archive(envs['7z_bin'], archive_path)
+                        src_crc,
+                        archive_crc
                     )
                 )
 
@@ -101,25 +102,19 @@ def main():
             archive_path,
             bucket,
             object_key,
-            metadata={'checksum-crc32': dir_crc}
+            metadata={'checksum-crc32': src_crc}
         )
         archive_path.unlink()
 
 
-def crc_dir(bin, path):
-    ret = subprocess.run([bin, 'h', '-scrcCRC32', str(path.resolve().absolute())], capture_output=True)
-    for line in ret.stdout.decode('utf-8', errors='ignore').replace('\r', '').split('\n'):
-        if line.startswith('CRC32  for data and names:    '):
-            return line.split('CRC32  for data and names:    ')[1]
-    else:
-        raise Exception('Unexpected 7z crc result')
+def crc_path(bin, path, is_archive, is_dir):
 
-
-def crc_archive(bin, path):
-    ret = subprocess.run([bin, 't', str(path.resolve().absolute()), '-scrcCRC32'], capture_output=True)
+    kw = 'CRC32  for data and names:    ' if is_dir else 'CRC32  for data:              ' 
+    args = [bin, 't', str(path.resolve().absolute()), '-scrcCRC32'] if is_archive else [bin, 'h', '-scrcCRC32', str(path.resolve().absolute())]
+    ret = subprocess.run(args, capture_output=True)
     for line in ret.stdout.decode('utf-8', errors='ignore').replace('\r', '').split('\n'):
-        if line.startswith('CRC32  for data and names:    '):
-            return line.split('CRC32  for data and names:    ')[1]
+        if line.startswith(kw):
+            return line.split(kw)[1]
     else:
         raise Exception('Unexpected 7z crc result')
 
